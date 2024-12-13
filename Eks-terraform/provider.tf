@@ -14,13 +14,12 @@ terraform {
 # Vault Provider Block
 provider "vault" {
   address = "http://192.168.56.41:8200"  # Replace with your Vault server address
-  token   = "your-vault-token-here"      # Replace with your Vault token
+  token   = "hvs.FOb6crKNmuJHVGfZtVXARioG"      # Replace with your Vault token
 }
 
 # AWS Provider Block (using Vault credentials)
 provider "aws" {
   region     = "us-east-1"  # Specify your region
-  profile = "default"
   access_key = data.vault_generic_secret.aws_credentials.data["aws_access_key_id"]
   secret_key = data.vault_generic_secret.aws_credentials.data["aws_secret_access_key"]
 }
