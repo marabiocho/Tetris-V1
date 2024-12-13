@@ -3,19 +3,12 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"  # Optional but recommended in production
+      version = "~> 5.0"
     }
     vault = {
       source = "hashicorp/vault"
-      # version = "~> 3.0"  # Optional but recommended in production
     }
   }
-}
-
-# AWS Provider Block
-provider "aws" {
-  region  = "us-west-2"  # Specify your region
-  profile = "default"    # Use the 'default' AWS profile
 }
 
 # Vault Provider Block
@@ -24,13 +17,14 @@ provider "vault" {
   token   = "your-vault-token-here"      # Replace with your Vault token
 }
 
-# Example for fetching AWS credentials from Vault (optional)
-data "vault_generic_secret" "aws_credentials" {
-  path = "kv/data/aws/credentials"  # Correct path for Vault v2 secrets
-}
-
+# AWS Provider Block (using Vault credentials)
 provider "aws" {
-  region     = data.vault_generic_secret.aws_credentials.data["region"]
+  region     = "us-west-2"  # Specify your region
   access_key = data.vault_generic_secret.aws_credentials.data["aws_access_key_id"]
   secret_key = data.vault_generic_secret.aws_credentials.data["aws_secret_access_key"]
+}
+
+# Example Vault Data Source for AWS credentials
+data "vault_generic_secret" "aws_credentials" {
+  path = "kv/data/aws/credentials"  # Replace with your correct Vault path
 }
