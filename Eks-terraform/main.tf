@@ -1,4 +1,27 @@
-# IAM Policy for EKS Cluster
+# Fetch Default VPC
+data "aws_vpc" "default" {
+  default = true
+}
+
+# Fetch All Subnets in the Default VPC
+data "aws_subnets" "all" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
+# Output Subnets for Debugging
+output "subnet_ids" {
+  value = data.aws_subnets.all.ids
+}
+
+# Validate Subnet List
+locals {
+  valid_subnet_ids = length(data.aws_subnets.all.ids) > 0 ? data.aws_subnets.all.ids : []
+}
+
+# IAM Role for EKS Cluster
 data "aws_iam_policy_document" "assume_role" {
   statement {
     effect = "Allow"
@@ -22,43 +45,7 @@ resource "aws_iam_role_policy_attachment" "example-AmazonEKSClusterPolicy" {
   role       = aws_iam_role.example.name
 }
 
-# Dynamically Get Default VPC
-data "aws_vpc" "default" {
-  default = true
-}
-
-# Dynamically Get Public Subnets in Default VPC
-data "aws_subnets" "public" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-  filter {
-    name   = "tag:aws:cloudformation:stack-name"
-    values = ["*"] # Optional: filter for specific tags, modify as needed
-  }
-}
-
-# Validate Subnets Belong to the Same VPC
-output "subnet_vpc_check" {
-  value = [for id in data.aws_subnets.public.ids : id]
-}
-
-# EKS Cluster
-resource "aws_eks_cluster" "example" {
-  name     = "EKS_CLOUD"
-  role_arn = aws_iam_role.example.arn
-
-  vpc_config {
-    subnet_ids = data.aws_subnets.public.ids
-  }
-
-  depends_on = [
-    aws_iam_role_policy_attachment.example-AmazonEKSClusterPolicy,
-  ]
-}
-
-# IAM Role for Node Group
+# IAM Role for EKS Node Group
 resource "aws_iam_role" "example1" {
   name = "eks-node-group-cloud"
 
@@ -89,12 +76,27 @@ resource "aws_iam_role_policy_attachment" "example-AmazonEC2ContainerRegistryRea
   role       = aws_iam_role.example1.name
 }
 
-# Create Node Group
+# EKS Cluster
+resource "aws_eks_cluster" "example" {
+  name     = "EKS_CLOUD"
+  role_arn = aws_iam_role.example.arn
+
+  vpc_config {
+    # Use Valid Subnets
+    subnet_ids = local.valid_subnet_ids
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.example-AmazonEKSClusterPolicy,
+  ]
+}
+
+# EKS Node Group
 resource "aws_eks_node_group" "example" {
   cluster_name    = aws_eks_cluster.example.name
   node_group_name = "Node-cloud"
   node_role_arn   = aws_iam_role.example1.arn
-  subnet_ids      = data.aws_subnets.public.ids
+  subnet_ids      = local.valid_subnet_ids
 
   scaling_config {
     desired_size = 2
