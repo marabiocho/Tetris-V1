@@ -3,22 +3,28 @@ data "aws_vpc" "default" {
   default = true
 }
 
-# Fetch All Subnets in the Default VPC
-data "aws_subnets" "all" {
+# Fetch Subnets in Supported Availability Zones
+data "aws_subnets" "filtered" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.default.id]
   }
+
+  # Filter subnets to include only supported AZs
+  filter {
+    name   = "availabilityZone"
+    values = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"]
+  }
 }
 
 # Output Subnets for Debugging
-output "subnet_ids" {
-  value = data.aws_subnets.all.ids
+output "valid_subnet_ids" {
+  value = data.aws_subnets.filtered.ids
 }
 
 # Validate Subnet List
 locals {
-  valid_subnet_ids = length(data.aws_subnets.all.ids) > 0 ? data.aws_subnets.all.ids : []
+  valid_subnet_ids = length(data.aws_subnets.filtered.ids) > 0 ? data.aws_subnets.filtered.ids : []
 }
 
 # IAM Role for EKS Cluster
