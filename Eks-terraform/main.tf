@@ -1,3 +1,4 @@
+# IAM Policy for EKS Cluster
 data "aws_iam_policy_document" "assume_role" {
   statement {
     effect = "Allow"
@@ -21,22 +22,32 @@ resource "aws_iam_role_policy_attachment" "example-AmazonEKSClusterPolicy" {
   role       = aws_iam_role.example.name
 }
 
-# Get VPC data
+# Dynamically Get Default VPC
 data "aws_vpc" "default" {
   default = true
 }
 
-# Get public subnets for the cluster
+# Dynamically Get Public Subnets in Default VPC
 data "aws_subnets" "public" {
   filter {
-    name   = "availabilityZone"
-    values = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"]
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+  filter {
+    name   = "tag:aws:cloudformation:stack-name"
+    values = ["*"] # Optional: filter for specific tags, modify as needed
   }
 }
 
+# Validate Subnets Belong to the Same VPC
+output "subnet_vpc_check" {
+  value = [for id in data.aws_subnets.public.ids : id]
+}
+
+# EKS Cluster
 resource "aws_eks_cluster" "example" {
   name     = "EKS_CLOUD"
-  role_arn = aws_iam_role.example.arn  # Corrected to reference the created IAM role
+  role_arn = aws_iam_role.example.arn
 
   vpc_config {
     subnet_ids = data.aws_subnets.public.ids
@@ -47,6 +58,7 @@ resource "aws_eks_cluster" "example" {
   ]
 }
 
+# IAM Role for Node Group
 resource "aws_iam_role" "example1" {
   name = "eks-node-group-cloud"
 
@@ -77,7 +89,7 @@ resource "aws_iam_role_policy_attachment" "example-AmazonEC2ContainerRegistryRea
   role       = aws_iam_role.example1.name
 }
 
-# Create node group
+# Create Node Group
 resource "aws_eks_node_group" "example" {
   cluster_name    = aws_eks_cluster.example.name
   node_group_name = "Node-cloud"
